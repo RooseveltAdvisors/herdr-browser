@@ -193,9 +193,10 @@ async function main() {
     process.once("exit", cleanupTerminal);
   }
   const config = await loadConfig();
+  const initialUrl = process.env.HERDR_BROWSER_INITIAL_URL?.trim() || undefined;
   const viewId = process.env.HERDR_BROWSER_VIEW_ID?.trim()
     ? await ensureView()
-    : (await createView()).viewId;
+    : (await createView(initialUrl)).viewId;
   await heartbeatView(viewId, process.env.HERDR_PANE_ID?.trim() || undefined);
   const input: UrlInputState = {
     focused: false,

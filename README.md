@@ -115,6 +115,17 @@ and new-tab controls. The second provides back, forward, reload, stop, zoom,
 and URL entry. Page clicks, scrolling, hover, and keyboard input are forwarded
 to Chromium.
 
+Pass an initial URL when another plugin opens the pane:
+
+```bash
+herdr plugin pane open \
+  --plugin official.browser \
+  --entrypoint browser \
+  --placement zoomed \
+  --env HERDR_BROWSER_INITIAL_URL=http://127.0.0.1:3000 \
+  --focus
+```
+
 ## Open Local Development Links
 
 The plugin registers a link handler for HTTP URLs using `localhost`,
