@@ -189,6 +189,7 @@ export async function startCdpViewGateway(controller: CdpViewGatewayController):
       title: tab.title,
       type: "page",
       url: tab.url,
+      active: tab.active,
       webSocketDebuggerUrl: pageWebSocketUrl(tab.targetId),
     };
   }

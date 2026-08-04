@@ -22,6 +22,10 @@ Bun from any working directory:
 bun run "<plugin_root>/src/cli.ts"
 ```
 
+The installed plugin root is authoritative for a live proof. Do not substitute
+this checkout unless the task explicitly links it into the intended Herdr
+session.
+
 List live browser views before connecting:
 
 ```bash
@@ -54,6 +58,39 @@ Tool bootstrap:
 - Playwright: call `chromium.connectOverCDP(cdp_http_url)`.
 - Playwright MCP: pass `--cdp-endpoint=<cdp_http_url>`.
 - Chrome DevTools MCP: pass `--browser-url=<cdp_http_url>`.
+
+For `chrome-devtools-axi`, keep the endpoint in a shell variable and point the
+client at it without printing it:
+
+```bash
+connect=$(bun run "<plugin_root>/src/cli.ts" connect --view "$VIEW_ID")
+export CHROME_DEVTOOLS_AXI_BROWSER_URL=$(printf '%s' "$connect" | jq -r '.cdp_http_url')
+chrome-devtools-axi snapshot
+```
+
+The endpoint must be loopback-only and view-scoped. Close the automation client
+when finished; do not send `Browser.close` or stop the plugin daemon, because
+Herdr Browser owns Chromium. Closing the visible pane is the lifecycle action
+that ends the view.
+
+For the repository's local proof, start `bun run test-page`, open its
+`http://127.0.0.1:<port>/` URL in the visible pane, then run
+`HERDR_BROWSER_CDP_HTTP_URL=<loopback-url> bun run e2e`. The script exercises
+DOM inspection, CDP mouse click, key input, form submission, screenshot capture,
+and synthetic cookie/localStorage seeding. Run it with `check-persistence` after
+a same-session pane/daemon/Herdr restart. `pane send-text` and `pane send-keys`
+exercise pane-native keyboard forwarding; physical pointer movement in the
+graphics surface remains manual-only.
+
+Profiles are dedicated and session-isolated by default. The sanitized session
+name is appended to the profile path, private state/profile parents are 0700,
+and daemon state/start locks are 0600. A different Herdr session must never see
+the first session's synthetic storage. Do not use a normal Chrome profile or
+share an explicit `profileRoot` between sessions.
+
+Profiles, cookies, localStorage, CDP endpoints, and login state are sensitive:
+never commit or print them, and never place them in logs, reports, the vault, or
+chat.
 
 Herdr Browser owns Chromium lifecycle. Closing a connected automation client
 disconnects it from the gateway without terminating Chromium. Closing the Herdr

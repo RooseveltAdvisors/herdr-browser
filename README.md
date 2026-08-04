@@ -93,6 +93,54 @@ not expose it over the network. Herdr Browser retains ownership of Chromium;
 closing an attached automation client disconnects it without terminating the
 plugin browser.
 
+For the installed plugin root and intended visible view, use installed metadata
+and the view list rather than a checkout or a guessed ID:
+
+```bash
+PLUGIN_ROOT=$(herdr plugin list --plugin official.browser --json | jq -r '.result.plugins[0].plugin_root')
+VIEWS=$(bun run "$PLUGIN_ROOT/src/cli.ts" views)
+```
+
+Choose the view whose `pane_id`, URL, title, and tabs match the visible pane,
+then connect it without printing the endpoint:
+
+```bash
+CONNECT=$(bun run "$PLUGIN_ROOT/src/cli.ts" connect --view "$VIEW_ID")
+export CHROME_DEVTOOLS_AXI_BROWSER_URL=$(printf '%s' "$CONNECT" | jq -r '.cdp_http_url')
+chrome-devtools-axi snapshot
+```
+
+The endpoint must remain loopback-only. Keep the plugin-owned pane and daemon
+alive while automation is attached; closing the automation client disconnects
+only that client. Close the visible pane when the browser view itself should
+end.
+
+## Hermetic E2E Proof
+
+The test server includes a local-only `/e2e` fixture. With a visible browser
+pane open at the test server origin and its view-scoped CDP URL in
+`HERDR_BROWSER_CDP_HTTP_URL`, run:
+
+```bash
+HERDR_BROWSER_E2E_ORIGIN=http://127.0.0.1:43127 bun run e2e
+```
+
+This native CDP client inspects the DOM, clicks, types, submits, verifies the
+active rendered target, and saves a screenshot under the ignored
+`.herdr-browser/` directory. It seeds only synthetic cookie and localStorage
+values. After closing and reopening the pane or restarting the lab daemon in
+the same Herdr session, run:
+
+```bash
+HERDR_BROWSER_E2E_ORIGIN=http://127.0.0.1:43127 \
+  bun run scripts/herdr-browser-e2e.ts check-persistence
+```
+
+The same check in a different Herdr session must report missing values. The
+pane-native keyboard path can be exercised with Herdr's `pane send-text` and
+`pane send-keys` APIs; real pointer movement/clicks in the graphics pane remain
+the honest manual-only boundary for a terminal harness.
+
 The agent-oriented workflow is documented in
 [`skills/herdr-browser/SKILL.md`](skills/herdr-browser/SKILL.md).
 
@@ -195,6 +243,18 @@ directory; the sanitized Herdr session name is still appended to prevent
 Chrome profile-lock conflicts across concurrent sessions. Do not point it at a
 profile currently used by another Chrome process.
 
+The default is the proven durability choice: a dedicated per-session profile
+survives normal pane, daemon, and Herdr restarts without reusing a normal
+browser profile. State parents and profile directories are created private
+(0700); daemon state and startup locks are private files (0600), and the
+session-specific suffix prevents concurrent sessions from sharing a profile.
+An explicit absolute `profileRoot` is useful only when an operator needs a
+private backup volume; preserve those permissions and the session suffix, and
+do not change it as part of an E2E run.
+
+Profile paths, cookies, localStorage, CDP endpoints, and login state are
+sensitive. Never put them in git, logs, proof reports, the vault, or chat.
+
 `linkOpenPlacement` accepts `split`, `tab`, `zoomed`, or `overlay`. An overlay
 is the recommended transient, popup-like browser surface. True Herdr `popup`
 placement is not supported because popups do not have the pane identity needed
@@ -271,6 +331,17 @@ Run the automated checks with:
 ```bash
 bun test
 bun run typecheck
+```
+
+If a pane unexpectedly disappears, first capture the pane process and recent
+output, then list plugin logs and browser views. A missing daemon is an
+integration/lifecycle symptom; do not reconnect to a guessed or stale view ID:
+
+```bash
+herdr pane process-info --pane <pane_id>
+herdr pane read <pane_id> --source recent --format text
+herdr plugin log list --plugin official.browser
+bun run "$PLUGIN_ROOT/src/cli.ts" views
 ```
 
 ## Current Limits

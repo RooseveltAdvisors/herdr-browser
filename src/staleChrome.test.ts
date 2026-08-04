@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -17,6 +17,30 @@ async function withStateFile(
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
+}
+
+async function processCommand(pid: number): Promise<string> {
+  try {
+    if (process.platform === "darwin") {
+      return new TextDecoder()
+        .decode(Bun.spawnSync(["ps", "-p", String(pid), "-o", "command="]).stdout)
+        .trim();
+    }
+    return (await readFile(`/proc/${pid}/cmdline`, "utf8")).split("\0")[0] ?? "";
+  } catch {
+    return "";
+  }
+}
+
+async function waitForChromeLikeCommand(pid: number, timeoutMs = 1_000): Promise<string> {
+  const deadline = Date.now() + timeoutMs;
+  let command = "";
+  while (Date.now() < deadline) {
+    command = await processCommand(pid);
+    if (/chrom(e|ium)/i.test(command)) return command;
+    await Bun.sleep(10);
+  }
+  throw new Error(`decoy did not become Chrome-like before timeout: ${JSON.stringify(command)}`);
 }
 
 test("missing state file is a no-op", async () => {
@@ -64,6 +88,9 @@ test("dead daemon with a live chrome-named process reaps it", async () => {
   });
   const deadPid = 2 ** 22 - 7;
   try {
+    // Bun.spawn can return while bash is still the process image. Wait for the
+    // synthetic Chrome identity before exercising the production PID guard.
+    await expect(waitForChromeLikeCommand(decoy.pid)).resolves.toMatch(/chrom(e|ium)/i);
     await withStateFile({ pid: deadPid, chromePid: decoy.pid }, async (path) => {
       await reapStaleChrome(path);
     });

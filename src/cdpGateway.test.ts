@@ -96,8 +96,9 @@ describe("view-scoped CDP gateway", () => {
     cleanups.push(gateway.close);
 
     const response = await fetch(`${gateway.httpUrl}/json/list`);
-    const targets = await response.json() as Array<{ id: string; webSocketDebuggerUrl: string }>;
+    const targets = await response.json() as Array<{ id: string; active: boolean; webSocketDebuggerUrl: string }>;
     expect(targets.map((target) => target.id)).toEqual(["owned-1"]);
+    expect(targets[0]?.active).toBe(true);
     expect(targets[0]?.webSocketDebuggerUrl).toBe(gateway.pageWebSocketUrl("owned-1"));
     expect((await fetch(`${gateway.httpUrl}/json/version/`)).status).toBe(200);
 
