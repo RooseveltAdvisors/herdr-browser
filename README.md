@@ -93,33 +93,22 @@ not expose it over the network. Herdr Browser retains ownership of Chromium;
 closing an attached automation client disconnects it without terminating the
 plugin browser.
 
-For the installed plugin root and intended visible view, use installed metadata
-and the view list rather than a checkout or a guessed ID:
-
-```bash
-PLUGIN_ROOT=$(herdr plugin list --plugin official.browser --json | jq -r '.result.plugins[0].plugin_root')
-VIEWS=$(bun run "$PLUGIN_ROOT/src/cli.ts" views)
-```
-
-Choose the view whose `pane_id`, URL, title, and tabs match the visible pane,
-then connect it without printing the endpoint:
-
-```bash
-CONNECT=$(bun run "$PLUGIN_ROOT/src/cli.ts" connect --view "$VIEW_ID")
-export CHROME_DEVTOOLS_AXI_BROWSER_URL=$(printf '%s' "$CONNECT" | jq -r '.cdp_http_url')
-chrome-devtools-axi snapshot
-```
-
-The endpoint must remain loopback-only. Keep the plugin-owned pane and daemon
-alive while automation is attached; closing the automation client disconnects
-only that client. Close the visible pane when the browser view itself should
-end.
+For installed plugin-root discovery, exact view selection, and endpoint-safe
+`chrome-devtools-axi` bootstrap, follow the
+[agent workflow](skills/herdr-browser/SKILL.md).
 
 ## Hermetic E2E Proof
 
-The test server includes a local-only `/e2e` fixture. With a visible browser
-pane open at the test server origin and its view-scoped CDP URL in
-`HERDR_BROWSER_CDP_HTTP_URL`, run:
+The test server includes a local-only `/e2e` fixture. Start it in one terminal:
+
+```bash
+HERDR_BROWSER_TEST_PORT=43127 bun run test-page
+```
+
+With a visible browser pane open at the test server origin and the loopback
+view-scoped `cdp_http_url` from `connect` in `HERDR_BROWSER_CDP_HTTP_URL`, run
+the proof from another terminal. The [agent workflow](skills/herdr-browser/SKILL.md)
+shows how to set that variable without printing the endpoint.
 
 ```bash
 HERDR_BROWSER_E2E_ORIGIN=http://127.0.0.1:43127 bun run e2e
@@ -133,7 +122,7 @@ the same Herdr session, run:
 
 ```bash
 HERDR_BROWSER_E2E_ORIGIN=http://127.0.0.1:43127 \
-  bun run scripts/herdr-browser-e2e.ts check-persistence
+  bun run e2e check-persistence
 ```
 
 The same check in a different Herdr session must report missing values. The
@@ -237,23 +226,11 @@ the live pane stream uses screencast regardless. `screencastEveryNthFrame`
 accepts `1` or `2` and halves the producer rate at `2`. `screencastPollMs`
 accepts `50` through `5000` and defaults to `250`.
 
-Chrome profiles persist by default under the plugin state directory and are
-isolated by Herdr session. `profileRoot` optionally changes the parent
-directory; the sanitized Herdr session name is still appended to prevent
-Chrome profile-lock conflicts across concurrent sessions. Do not point it at a
-profile currently used by another Chrome process.
-
-The default is the proven durability choice: a dedicated per-session profile
-survives normal pane, daemon, and Herdr restarts without reusing a normal
-browser profile. State parents and profile directories are created private
-(0700); daemon state and startup locks are private files (0600), and the
-session-specific suffix prevents concurrent sessions from sharing a profile.
-An explicit absolute `profileRoot` is useful only when an operator needs a
-private backup volume; preserve those permissions and the session suffix, and
-do not change it as part of an E2E run.
-
-Profile paths, cookies, localStorage, CDP endpoints, and login state are
-sensitive. Never put them in git, logs, proof reports, the vault, or chat.
+`profileRoot` optionally changes the parent directory for the dedicated
+per-session profile; the session-specific suffix is still appended to prevent
+profile-lock conflicts. Do not point it at a profile currently used by another
+Chrome process. See [Profiles](#profiles) for persistence, permissions, and
+sensitive-value handling.
 
 `linkOpenPlacement` accepts `split`, `tab`, `zoomed`, or `overlay`. An overlay
 is the recommended transient, popup-like browser surface. True Herdr `popup`
@@ -287,11 +264,24 @@ herdr server reload-config
 
 ## Chromium Discovery
 
+### Profiles
+
 The plugin launches a separate headless Chromium process with a dedicated,
 persistent profile for each Herdr session. Cookies, origin storage, consent
 state, and logins survive browser pane and daemon restarts within that session.
 It does not attach to your normal browser process or reuse your normal browser
-profile.
+profile. A different Herdr session must not see the first session's storage.
+
+The default is the proven durability choice: a dedicated per-session profile
+survives normal pane, daemon, and Herdr restarts without reusing a normal
+browser profile. State parents and profile directories are created private
+(0700); daemon state and startup locks are private files (0600). An explicit
+absolute `profileRoot` is useful only when an operator needs a private backup
+volume; preserve those permissions and the session suffix, and do not change it
+as part of an E2E run.
+
+For automation handling of profile paths, cookies, localStorage, CDP endpoints,
+and login state, follow the [agent workflow](skills/herdr-browser/SKILL.md).
 
 On Linux, it searches common Chrome and Chromium executable names on `PATH`. On
 macOS, it also searches standard Google Chrome and Chromium application
