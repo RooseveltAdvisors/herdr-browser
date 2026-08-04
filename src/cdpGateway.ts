@@ -273,7 +273,7 @@ export async function startCdpViewGateway(controller: CdpViewGatewayController):
       if (message.id !== undefined) {
         data.pending.set(message.id, { method: message.method, params });
       }
-      forwardToUpstream(data, text);
+      forwardToUpstream(data, normalizeDownstreamMessage(data, message, text));
     } catch (error) {
       sendError(socket, message.id, error);
     }
@@ -458,6 +458,35 @@ function forwardToUpstream(data: GatewaySocketData, text: string): void {
     return;
   }
   data.queued.push(text);
+}
+
+function normalizeDownstreamMessage(
+  data: GatewaySocketData,
+  message: CdpMessage,
+  text: string,
+): string {
+  if (data.pageTargetId || message.method !== "Target.setAutoAttach") {
+    return text;
+  }
+  const filter = message.params?.filter;
+  if (!Array.isArray(filter) || !filter.some(isExcludedPageFilter)) {
+    return text;
+  }
+  return JSON.stringify({
+    ...message,
+    params: {
+      ...message.params,
+      filter: [{ type: "page" }],
+    },
+  });
+}
+
+function isExcludedPageFilter(value: unknown): boolean {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const filter = value as { type?: unknown; exclude?: unknown };
+  return filter.type === "page" && filter.exclude === true;
 }
 
 function sendResult(

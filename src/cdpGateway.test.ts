@@ -140,6 +140,27 @@ describe("view-scoped CDP gateway", () => {
     expect(upstream.receivedMethods).toContain("Runtime.runIfWaitingForDebugger");
     expect(upstream.receivedMethods).toContain("Target.detachFromTarget");
   });
+
+  test("adapts tab-based auto-attach to the gateway's owned page targets", async () => {
+    const upstream = fakeCdpServer();
+    cleanups.push(() => upstream.stop(true));
+    const owned = new Set(["owned-1"]);
+    const tabs = new Map([["owned-1", tab("owned-1", true)]]);
+    const gateway = await startCdpViewGateway(fakeController(upstream, owned, tabs, [], []));
+    cleanups.push(gateway.close);
+    const client = await CdpClient.connect(gateway.browserWebSocketUrl);
+    cleanups.push(() => client.close());
+
+    await client.send("Target.setAutoAttach", {
+      autoAttach: true,
+      flatten: true,
+      waitForDebuggerOnStart: true,
+      filter: [{ type: "page", exclude: true }, {}],
+    });
+
+    expect(upstream.receivedParams.find((params) => params.method === "Target.setAutoAttach")?.params)
+      .toMatchObject({ filter: [{ type: "page" }] });
+  });
 });
 
 function fakeController(
@@ -189,6 +210,7 @@ function fakeController(
 
 function fakeCdpServer(options: { emitForeignDuringCreate?: boolean } = {}) {
   const receivedMethods: string[] = [];
+  const receivedParams: Array<{ method: string; params: Record<string, unknown> }> = [];
   const server = Bun.serve({
     hostname: "127.0.0.1",
     port: 0,
@@ -208,6 +230,7 @@ function fakeCdpServer(options: { emitForeignDuringCreate?: boolean } = {}) {
           method: string;
         };
         receivedMethods.push(message.method);
+        receivedParams.push({ method: message.method, params: message.params ?? {} });
         if (message.method === "Target.getTargets") {
           socket.send(JSON.stringify({
             id: message.id,
@@ -300,7 +323,7 @@ function fakeCdpServer(options: { emitForeignDuringCreate?: boolean } = {}) {
       },
     },
   });
-  return Object.assign(server, { receivedMethods });
+  return Object.assign(server, { receivedMethods, receivedParams });
 }
 
 function tab(targetId: string, active: boolean): BrowserTabInfo {
