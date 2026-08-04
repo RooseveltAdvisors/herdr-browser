@@ -42,6 +42,7 @@ export async function launchChrome(): Promise<ChromeInstance> {
     `--user-data-dir=${profileDir}`,
     "--no-first-run",
     "--no-default-browser-check",
+    "--password-store=basic",
     "--disable-background-networking",
     "--disable-background-timer-throttling",
     "--disable-client-side-phishing-detection",
