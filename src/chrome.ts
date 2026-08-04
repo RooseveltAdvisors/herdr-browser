@@ -23,7 +23,7 @@ export type ChromeInstance = {
   browserWebSocketUrl: string;
   /** Recent stderr lines kept for crash diagnostics; bounded, not the full history. */
   recentStderr: () => string;
-  close: () => Promise<void>;
+  close: (graceful?: boolean) => Promise<void>;
 };
 
 type ChromeProcess = ChildProcessByStdio<null, null, Readable>;
@@ -71,7 +71,10 @@ export async function launchChrome(): Promise<ChromeInstance> {
     stdio: ["ignore", "ignore", "pipe"],
   });
 
-  async function close() {
+  async function close(graceful = false) {
+    if (graceful && await waitForChromeExit(chrome, 1_500)) {
+      return;
+    }
     if (!chrome.killed && !hasChromeExited(chrome)) {
       chrome.kill("SIGTERM");
     }

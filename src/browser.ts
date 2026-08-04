@@ -275,8 +275,11 @@ export async function createBrowserRuntime(
         for (const unsubscribe of runtime.unsubscribers) {
           unsubscribe();
         }
+        // Ask Chromium to shut down gracefully so profile-backed state such as
+        // cookies is flushed before the process fallback in chrome.close().
+        await cdp?.send("Browser.close", {}, undefined, 1_000).catch(() => {});
         cdp?.close();
-        await chrome.close();
+        await chrome.close(true);
       },
     };
     runtime.unsubscribers.push(
