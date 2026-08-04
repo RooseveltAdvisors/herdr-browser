@@ -22,6 +22,10 @@ Bun from any working directory:
 bun run "<plugin_root>/src/cli.ts"
 ```
 
+The installed plugin root is authoritative for a live proof. Do not substitute
+this checkout unless the task explicitly links it into the intended Herdr
+session.
+
 List live browser views before connecting:
 
 ```bash
@@ -54,6 +58,37 @@ Tool bootstrap:
 - Playwright: call `chromium.connectOverCDP(cdp_http_url)`.
 - Playwright MCP: pass `--cdp-endpoint=<cdp_http_url>`.
 - Chrome DevTools MCP: pass `--browser-url=<cdp_http_url>`.
+
+For `chrome-devtools-axi`, keep the endpoint in a shell variable and point the
+client at it without printing it:
+
+```bash
+connect=$(bun run "<plugin_root>/src/cli.ts" connect --view "$VIEW_ID")
+export HERDR_BROWSER_CDP_HTTP_URL=$(printf '%s' "$connect" | jq -r '.cdp_http_url')
+export CHROME_DEVTOOLS_AXI_BROWSER_URL="$HERDR_BROWSER_CDP_HTTP_URL"
+chrome-devtools-axi snapshot
+```
+
+The endpoint must be loopback-only and view-scoped. Close the automation client
+when finished; do not send `Browser.close` or stop the plugin daemon, because
+Herdr Browser owns Chromium. Closing the visible pane is the lifecycle action
+that ends the view.
+
+For the repository's local fixture commands and persistence proof, follow the
+README's [Hermetic E2E Proof](../../README.md#hermetic-e2e-proof). The script
+exercises DOM inspection, CDP mouse click, key input, form submission,
+screenshot capture, and synthetic cookie/localStorage seeding. `pane send-text`
+and `pane send-keys` exercise pane-native keyboard forwarding; physical pointer
+movement in the graphics surface remains manual-only.
+
+Profiles are dedicated and session-isolated by default. Do not use a normal
+Chrome profile or share an explicit `profileRoot` between sessions; the README's
+[Profiles](../../README.md#profiles) section owns path, persistence, and
+permission details.
+
+Profiles, cookies, localStorage, CDP endpoints, and login state are sensitive:
+never commit or print them, and never place them in logs, reports, the vault, or
+chat.
 
 Herdr Browser owns Chromium lifecycle. Closing a connected automation client
 disconnects it from the gateway without terminating Chromium. Closing the Herdr

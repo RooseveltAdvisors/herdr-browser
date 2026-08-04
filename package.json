@@ -11,6 +11,7 @@
     "browser": "bun run src/cli.ts",
     "plugin:status": "bun run src/actions/status.ts",
     "test-page": "bun run src/testServer.ts",
+    "e2e": "bun run scripts/herdr-browser-e2e.ts",
     "viewer": "bun run src/viewer.ts",
     "test": "bun test",
     "typecheck": "tsc --noEmit"

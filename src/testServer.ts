@@ -354,6 +354,44 @@ const html = `<!doctype html>
 </body>
 </html>`;
 
+const e2eHtml = `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Herdr Browser E2E Fixture</title>
+  <style>
+    body { margin: 2rem; font: 16px system-ui, sans-serif; color: #172033; }
+    main { max-width: 36rem; display: grid; gap: 1rem; }
+    label { display: grid; gap: .4rem; }
+    input, button { font: inherit; padding: .6rem .8rem; }
+    #result { min-height: 1.5rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Herdr Browser E2E Fixture</h1>
+    <button id="agent-button" type="button">Agent click target</button>
+    <p id="clicked">not clicked</p>
+    <form id="e2e-form">
+      <label>Message <input id="message-input" name="message" autofocus value="initial"></label>
+      <button id="submit-button" type="submit">Submit fixture form</button>
+    </form>
+    <p id="result">not submitted</p>
+  </main>
+  <script>
+    const clicked = document.querySelector("#clicked");
+    const input = document.querySelector("#message-input");
+    document.querySelector("#agent-button").addEventListener("click", () => {
+      clicked.textContent = "clicked";
+    });
+    document.querySelector("#e2e-form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      document.querySelector("#result").textContent = "submitted:" + input.value;
+    });
+  </script>
+</body>
+</html>`;
+
 const benchmarkHtml = `<!doctype html>
 <html>
 <head>
@@ -406,7 +444,8 @@ Bun.serve({
   hostname: "127.0.0.1",
   port,
   fetch(request) {
-    const body = new URL(request.url).pathname === "/benchmark" ? benchmarkHtml : html;
+    const pathname = new URL(request.url).pathname;
+    const body = pathname === "/benchmark" ? benchmarkHtml : pathname === "/e2e" ? e2eHtml : html;
     return new Response(body, {
       headers: {
         "content-type": "text/html; charset=utf-8",
