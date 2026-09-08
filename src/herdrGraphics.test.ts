@@ -85,6 +85,9 @@ test("PaneGraphicsStream.open destroys socket when ack read times out", async ()
     resolveAccepted = resolve;
   });
   const server = createServer((socket) => {
+    // Drain client data: bun does not emit close on the server socket when a
+    // client destroys with unread data buffered.
+    socket.on("data", () => {});
     resolveAccepted(socket);
   });
 
