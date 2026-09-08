@@ -163,9 +163,10 @@ async function main(): Promise<void> {
   assert(target?.id, "view has no active page target");
   assert(target.url.startsWith(expectedOrigin), "active page is not the local fixture origin");
   const version = await json<{ webSocketDebuggerUrl?: string }>(`${http}/json/version`);
-  assert(version.webSocketDebuggerUrl?.startsWith("ws://127.0.0.1:") || version.webSocketDebuggerUrl?.startsWith("ws://localhost:"), "CDP browser endpoint is not loopback");
+  const wsUrl = version.webSocketDebuggerUrl;
+  assert(typeof wsUrl === "string" && (wsUrl.startsWith("ws://127.0.0.1:") || wsUrl.startsWith("ws://localhost:")), "CDP browser endpoint is not loopback");
 
-  const cdp = await CdpConnection.connect(version.webSocketDebuggerUrl);
+  const cdp = await CdpConnection.connect(wsUrl);
   try {
     await cdp.send("Target.activateTarget", { targetId: target.id });
     const attached = await cdp.send("Target.attachToTarget", { targetId: target.id, flatten: true });

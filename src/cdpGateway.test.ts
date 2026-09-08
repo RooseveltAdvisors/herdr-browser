@@ -228,6 +228,7 @@ function fakeCdpServer(options: { emitForeignDuringCreate?: boolean } = {}) {
         const message = JSON.parse(typeof raw === "string" ? raw : raw.toString()) as {
           id: number;
           method: string;
+          params?: Record<string, unknown>;
         };
         receivedMethods.push(message.method);
         receivedParams.push({ method: message.method, params: message.params ?? {} });
