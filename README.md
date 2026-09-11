@@ -1,5 +1,23 @@
 # Herdr Browser
 
+## Demo
+
+The same Chromium view an agent controls is rendered live inside the Herdr pane:
+
+![A live Herdr Browser session: click, type, and submit in the visible Chromium pane](assets/demo/herdr-browser-demo.gif)
+
+The pane starts with a synthetic local page ready for the agent to use.
+
+![The synthetic page before the agent interacts with it](assets/demo/herdr-browser-before.png)
+
+The agent clicks the page and types a representative message through CDP.
+
+![The agent's message typed into the visible browser pane](assets/demo/herdr-browser-typed.png)
+
+The page updates immediately, while the browser remains visible and interactive.
+
+![The submitted result visible in the same browser pane](assets/demo/herdr-browser-submitted.png)
+
 Herdr Browser renders a real Chromium view inside a Herdr pane and exposes it to
 Chrome DevTools Protocol clients. An agent drives the browser, you watch it in
 the pane, and you take over with the mouse and keyboard at any point without
